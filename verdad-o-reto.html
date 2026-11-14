@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verdad, Reto o Trago 🔥</title>
+<style>
+  :root{
+    --bg1:#12021f; --bg2:#2a0630; --verdad:#7c3aed; --reto:#e11d48; --trago:#f59e0b;
+    --txt:#fff5fb;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--txt);
+    background:radial-gradient(circle at 50% 0%,var(--bg2),var(--bg1) 70%) fixed;
+    display:flex;flex-direction:column;align-items:center;
+    padding:16px 16px 40px;gap:14px;
+  }
+  h1{margin:6px 0 0;font-size:clamp(1.5rem,5vw,2.2rem);letter-spacing:.5px;text-align:center}
+  h1 span{background:linear-gradient(90deg,#fb7185,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:0;opacity:.7;font-size:.9rem;text-align:center}
+  .players{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .chip{
+    padding:8px 16px;border-radius:999px;border:2px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.06);font-weight:700;transition:.15s;
+  }
+  .chip.on{background:linear-gradient(90deg,#fb7185,#f59e0b);color:#2a0630;border-color:#fff;transform:scale(1.12);box-shadow:0 0 18px #fb7185aa}
+  .stage{position:relative;width:min(88vw,420px);aspect-ratio:1}
+  #wheel{width:100%;height:100%;transition:transform 5.2s cubic-bezier(.12,.7,.08,1);filter:drop-shadow(0 8px 30px #000a)}
+  .pointer{
+    position:absolute;left:50%;top:-6px;transform:translateX(-50%);
+    width:0;height:0;border-left:16px solid transparent;border-right:16px solid transparent;
+    border-top:34px solid #fff;filter:drop-shadow(0 3px 4px #000a);z-index:2;
+  }
+  .hub{
+    position:absolute;inset:0;margin:auto;width:22%;aspect-ratio:1;border-radius:50%;
+    background:#12021f;border:4px solid #fff;display:grid;place-items:center;font-size:1.8rem;z-index:2;
+  }
+  button{font:inherit;cursor:pointer}
+  #spin{
+    border:0;border-radius:999px;padding:16px 46px;font-size:1.25rem;font-weight:800;color:#fff;
+    background:linear-gradient(90deg,#e11d48,#f59e0b);box-shadow:0 8px 26px #e11d4877;
+    letter-spacing:1px;transition:.15s;
+  }
+  #spin:active{transform:scale(.96)}
+  #spin:disabled{opacity:.5;cursor:not-allowed}
+  .legend{display:flex;gap:14px;font-size:.85rem;opacity:.85;flex-wrap:wrap;justify-content:center}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .counter{opacity:.6;font-size:.8rem}
+
+  /* tarjeta resultado */
+  .overlay{
+    position:fixed;inset:0;background:#000b;backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;padding:18px;z-index:10;
+  }
+  .overlay.show{display:flex}
+  .card{
+    width:min(100%,460px);border-radius:26px;padding:28px 24px;text-align:center;
+    border:3px solid #fff;box-shadow:0 20px 70px #000;animation:pop .35s cubic-bezier(.2,1.6,.4,1);
+  }
+  @keyframes pop{from{transform:scale(.6) rotate(-4deg);opacity:0}to{transform:none;opacity:1}}
+  .card .tipo{font-size:.95rem;letter-spacing:4px;font-weight:800;opacity:.9}
+  .card .who{font-size:2rem;font-weight:900;margin:6px 0 14px}
+  .card .emoji{font-size:3rem}
+  .card .txt{font-size:1.3rem;line-height:1.4;font-weight:600;margin:0 0 22px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .btns button{border:0;border-radius:999px;padding:12px 22px;font-weight:800}
+  .ok{background:#fff;color:#2a0630}
+  .no{background:#0006;color:#fff;border:2px solid #fff!important}
+</style>
+</head>
+<body>
+  <h1>🔥 <span>Verdad, Reto o Trago</span> 🔥</h1>
+  <p class="sub">Solo para mayores de 18 · Bebe con responsabilidad 🍻</p>
+
+  <div class="players" id="players"></div>
+
+  <div class="stage">
+    <div class="pointer"></div>
+    <div class="hub">🎲</div>
+    <svg id="wheel" viewBox="0 0 400 400"></svg>
+  </div>
+
+  <button id="spin">¡GIRAR!</button>
+  <div class="legend">
+    <span><i style="background:var(--verdad)"></i>Verdad 40%</span>
+    <span><i style="background:var(--reto)"></i>Reto 40%</span>
+    <span><i style="background:var(--trago)"></i>Trago 20%</span>
+  </div>
+  <div class="counter" id="counter">Rondas: 0</div>
+
+  <div class="overlay" id="overlay">
+    <div class="card" id="card">
+      <div class="tipo" id="tipo"></div>
+      <div class="emoji" id="emoji"></div>
+      <div class="who" id="who"></div>
+      <p class="txt" id="txt"></p>
+      <div class="btns" id="btns"></div>
+    </div>
+  </div>
+
+<script>
+const JUGADORES = ["Yeudy","Yaritza","Leider","Jhordan"];
+
+/* ====== 50 VERDADES ====== */
+const VERDADES = [
+"¿Cuál ha sido tu peor cita y qué la arruinó?",
+"¿Has fingido un orgasmo alguna vez? ¿Con quién?",
+"Si fuera obligatorio, ¿con cuál de los presentes tendrías una noche de pasión?",
+"¿Cuál es esa fantasía que nunca le has contado a nadie?",
+"¿Alguna vez le fuiste infiel a alguien? ¿Te lo han sido a ti?",
+"¿Qué es lo más vergonzoso que te han encontrado haciendo a solas?",
+"¿Quién de los presentes crees que besa mejor? ¿Por qué?",
+"¿Has tenido un crush con la pareja o ex de un amigo?",
+"¿Cuál es el lugar más raro donde has tenido intimidad?",
+"¿A cuántas personas has besado en tu vida? Número exacto.",
+"¿Qué es lo que más te excita de otra persona?",
+"¿Has stalkeado a tu ex en el último mes? Sé honesto.",
+"¿Qué es lo más atrevido que has mandado por mensaje?",
+"¿Cuál es el secreto que jamás le contarías a tu familia?",
+"¿A quién de los presentes menos le confiarías un secreto y por qué?",
+"¿Has estado con alguien solo por interés o por no sentirte solo?",
+"¿Cuál es tu mayor inseguridad física?",
+"¿Has hablado mal de alguno de los presentes a sus espaldas? ¿Qué dijiste?",
+"¿Cuál ha sido tu beso más incómodo?",
+"¿Has tenido un 'amigo con derechos'? ¿Cómo terminó?",
+"¿Qué es lo primero que miras del cuerpo de alguien que te atrae?",
+"¿Has llorado por alguien que no lo merecía? ¿Quién?",
+"¿Cuál es la mentira más grande que le has dicho a una pareja?",
+"Cita a ciegas: ¿con quién de los presentes saldrías y con quién jamás?",
+"¿Alguna vez te ha atraído alguien que jamás imaginaste?",
+"¿A qué hora y en qué lugar prefieres la intimidad?",
+"¿Cuánto dinero has gastado intentando conquistar a alguien?",
+"¿Qué defecto de una ex pareja te molestaba más en la intimidad?",
+"¿Has leído mensajes ajenos sin permiso? ¿De quién?",
+"¿Qué es lo más prohibido o loco que has hecho borracho?",
+"¿Te has enamorado de alguien que ya estaba comprometido?",
+"¿Cuál es el peor apodo que te han puesto y quién lo inventó?",
+"¿Qué es eso que nunca te atreverías a pedirle a una pareja en la cama?",
+"¿Te han rechazado alguna vez de forma humillante? Cuéntalo.",
+"¿Alguno de los presentes te ha gustado alguna vez, aunque sea por un segundo?",
+"¿Cuántas veces al día piensas en sexo, más o menos?",
+"¿Cuál es tu mayor 'red flag' en el amor?",
+"¿Has mentido sobre tu número de parejas? ¿Cuál es el real?",
+"¿Qué es lo más raro que te excita?",
+"¿Has besado a alguien solo por una apuesta o por despecho?",
+"¿Cuál es el mensaje de madrugada del que más te arrepientes?",
+"Matrimonio, aventura de una noche o ignorar: reparte esas tres opciones entre los otros tres presentes.",
+"¿Te has quedado con alguien solo por pena?",
+"¿Qué es lo más vergonzoso que te ha pasado en un momento íntimo?",
+"¿Qué cualidad de alguno de los presentes te irrita en silencio?",
+"¿Cuál es la búsqueda más vergonzosa de tu historial?",
+"¿Con quién de los presentes crees que tienes más química? ¿Por qué?",
+"Tu ex te escribe esta noche diciendo que quiere volver. ¿Qué haces, sinceramente?",
+"¿Cuándo fue la última vez que mentiste para evitar un plan con alguno de los presentes?",
+"¿Cuál es lo más atrevido que harías por dinero?"
+];
+
+/* ====== 50 RETOS ({otro} = otro jugador al azar) ====== */
+const RETOS = [
+"Dale un masaje de hombros de 30 segundos a {otro}.",
+"Imita cómo crees que {otro} coquetea, sin cortarte.",
+"Deja que {otro} lea en voz alta tu última conversación de WhatsApp (sin borrar nada).",
+"Haz un baile sensual de 20 segundos sin música.",
+"Susurra al oído de {otro} lo que más te gusta de esa persona.",
+"Escríbele 'te extraño' a tu última ex pareja... o bebe 2 tragos.",
+"Deja que {otro} te dibuje algo en la cara con un marcador o labial.",
+"Mira a los ojos a {otro} durante 30 segundos sin reírte.",
+"Cuenta en voz alta un secreto que nadie aquí sepa... o bebe 2 tragos.",
+"Haz 10 sentadillas diciendo un piropo distinto a {otro} en cada una.",
+"Muestra las últimas 3 fotos de tu galería, sin elegir.",
+"Dale un beso en la mejilla a {otro}, lo más lento posible.",
+"Quítate una prenda (no valen zapatos ni calcetines) o bebe 2 tragos.",
+"Cuenta tu mayor fantasía en 20 segundos, con todos los detalles que te atrevas.",
+"Llama a alguien y dile solo: 'Tuve un sueño contigo', y cuelga.",
+"Deja que {otro} escriba tu estado de WhatsApp por una hora (sin groserías).",
+"Haz tu mejor cara de placer durante 10 segundos.",
+"Siéntate en las piernas de {otro} hasta el siguiente turno.",
+"Dale de beber a {otro} con tus manos, sin que se derrame.",
+"Dile a {otro} tres cosas que te atraen de esa persona y una que no soportas.",
+"Baila pegadito y lento con {otro} durante 30 segundos.",
+"Habla con voz seductora hasta tu próximo turno.",
+"Pasa un hielo por el cuello de {otro}, lentamente.",
+"Escribe una declaración de amor a {otro} y léela con mucho drama.",
+"Dale like a una foto de hace más de 2 años de tu crush o ex... o bebe 2 tragos.",
+"Que el grupo elija un contacto de tu celular y mándale: '¿Qué llevas puesto?'... o bebe 2 tragos.",
+"Haz tu mejor perreo de 15 segundos.",
+"Di en voz alta el nombre de tu ex y lo peor que pasó en esa relación.",
+"Con los ojos tapados, adivina quién del grupo te toca la cara.",
+"Hazle un cumplido muy subido de tono a {otro} sin reírte.",
+"Come una cucharada de lo más picante que haya, escogido por el grupo.",
+"Intercambia una prenda con {otro} durante 3 turnos.",
+"Deja que {otro} te haga cosquillas durante 15 segundos.",
+"Escribe con el dedo un mensaje en la espalda de {otro}; esa persona debe adivinarlo.",
+"Describe cómo sería tu cita perfecta con {otro}, con detalles.",
+"Véndele a {otro} como si fuera un producto muy sexy, estilo comercial de TV.",
+"Haz tu mejor pose de portada de revista sexy.",
+"Dale un abrazo de 20 segundos a {otro}, sin soltar.",
+"Deja que {otro} revise tu historial de búsqueda 10 segundos... o bebe 2 tragos.",
+"Cuenta dos verdades y una mentira picantes; si el grupo adivina la mentira, bebes.",
+"Tómate una selfie con la cara más sensual y muéstrala al grupo.",
+"Dile un secreto al oído a {otro}.",
+"Imita el sonido más vergonzoso que hayas hecho en público.",
+"Bebe un trago directo del vaso que sostiene {otro}, sin tocarlo con las manos.",
+"Ponle un apodo cariñoso a {otro} y úsalo toda la noche.",
+"Cántale una canción romántica a {otro}, mirándole a los ojos.",
+"Declárale tu amor eterno al vaso más cercano, con toda la pasión.",
+"Lee en voz alta el último mensaje que enviaste por chat, sea cual sea.",
+"Camina por la sala como modelo de pasarela, lo más sexy posible.",
+"Elige a alguien del grupo y explica por qué sería una buena y una mala pareja."
+];
+
+/* ====== TRAGOS ====== */
+const TRAGOS = [
+"¡Toma un trago! 🍻",
+"Bebe 2 tragos por tu mala suerte.",
+"¡Todos beben! Salud 🥂",
+"Elige a alguien para que beba contigo.",
+"Bebe un trago y cuenta tu peor momento de borracho.",
+"Reparte 3 tragos entre los demás como quieras.",
+"Bebe un trago sin usar las manos... o bebe dos.",
+"El de tu derecha bebe por ti. ¡Qué suerte!",
+"Brinda con la persona que quieras y beban juntos."
+];
+
+/* ====== ESTADO ====== */
+const TIPOS = {
+  V:{nombre:"VERDAD",color:"#7c3aed",emoji:"🤫"},
+  R:{nombre:"RETO",color:"#e11d48",emoji:"😈"},
+  T:{nombre:"TRAGO",color:"#f59e0b",emoji:"🍻"}
+};
+const SLICES = ["V","R","V","R","T","V","R","V","R","T"];  // 4V + 4R + 2T → 40/40/20
+const ANG = 360/SLICES.length;
+let rotacion = 0, rondas = 0, ultimoJugador = -1, girando = false;
+const mazos = {V:[],R:[],T:[]};
+const fuente = {V:VERDADES,R:RETOS,T:TRAGOS};
+
+const $ = id => document.getElementById(id);
+
+function barajar(a){
+  a = a.slice();
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+  return a;
+}
+function sacar(t){
+  if(!mazos[t].length) mazos[t] = barajar(fuente[t]);
+  return mazos[t].pop();
+}
+
+/* ====== DIBUJAR RULETA ====== */
+function punto(r,a){const rad=a*Math.PI/180;return [200+r*Math.sin(rad),200-r*Math.cos(rad)]}
+function dibujarRuleta(){
+  let s = '';
+  SLICES.forEach((t,i)=>{
+    const a0=i*ANG, a1=(i+1)*ANG, mid=(a0+a1)/2;
+    const [x0,y0]=punto(190,a0), [x1,y1]=punto(190,a1);
+    s += `<path d="M200 200 L${x0} ${y0} A190 190 0 0 1 ${x1} ${y1} Z" fill="${TIPOS[t].color}" stroke="#fff" stroke-width="3"/>`;
+    const izq = mid>180;
+    const tr = izq ? `translate(200,200) rotate(${mid+90})` : `translate(200,200) rotate(${mid-90})`;
+    s += `<text transform="${tr}" x="${izq?-62:62}" y="7" text-anchor="${izq?'end':'start'}" fill="#fff" font-weight="900" font-size="19" letter-spacing="2">${TIPOS[t].nombre} ${TIPOS[t].emoji}</text>`;
+  });
+  s += `<circle cx="200" cy="200" r="190" fill="none" stroke="#fff" stroke-width="6"/>`;
+  $("wheel").innerHTML = s;
+}
+
+function dibujarJugadores(){
+  $("players").innerHTML = JUGADORES.map((n,i)=>`<div class="chip" id="p${i}">${n}</div>`).join("");
+}
+function resaltar(i){
+  JUGADORES.forEach((_,k)=>$("p"+k).classList.toggle("on",k===i));
+}
+
+/* ====== GIRAR ====== */
+function elegirTipo(){
+  const r = Math.random();
+  return r<0.4 ? "V" : r<0.8 ? "R" : "T";   // 40 / 40 / 20
+}
+
+function girar(){
+  if(girando) return;
+  girando = true; $("spin").disabled = true; resaltar(-1);
+
+  const tipo = elegirTipo();
+  const candidatas = SLICES.map((t,i)=>t===tipo?i:-1).filter(i=>i>=0);
+  const idx = candidatas[Math.floor(Math.random()*candidatas.length)];
+  const objetivo = idx*ANG + ANG/2 + (Math.random()*2-1)*(ANG/2-5); // punto bajo la flecha
+  const base = rotacion - (((rotacion%360)+360)%360);
+  rotacion = base + 360*(6+Math.floor(Math.random()*3)) + ((360-objetivo)%360);
+  $("wheel").style.transform = `rotate(${rotacion}deg)`;
+
+  setTimeout(()=>elegirJugador(tipo), 5300);
+}
+
+function elegirJugador(tipo){
+  let final;
+  do { final = Math.floor(Math.random()*JUGADORES.length); } while(final===ultimoJugador && JUGADORES.length>1);
+  let paso = 0, delay = 70;
+  const N = 16 + final + 1;               // el último resaltado cae justo en "final"
+  (function tick(){
+    resaltar(paso % JUGADORES.length);
+    paso++;
+    if(paso < N){
+      delay += 9; setTimeout(tick, delay);
+    } else {
+      resaltar(final); ultimoJugador = final;
+      setTimeout(()=>mostrar(tipo, final), 600);
+    }
+  })();
+}
+
+function mostrar(tipo, jugador){
+  rondas++; $("counter").textContent = "Rondas: "+rondas;
+  const nombre = JUGADORES[jugador];
+  const otros = JUGADORES.filter((_,i)=>i!==jugador);
+  const texto = sacar(tipo).replace("{otro}", otros[Math.floor(Math.random()*otros.length)]);
+  const t = TIPOS[tipo];
+  const card = $("card");
+  card.style.background = `linear-gradient(160deg, ${t.color}, #12021f 130%)`;
+  $("tipo").textContent = t.nombre;
+  $("emoji").textContent = t.emoji;
+  $("who").textContent = nombre;
+  $("txt").textContent = texto;
+  $("btns").innerHTML = tipo==="T"
+    ? `<button class="ok" onclick="cerrar()">¡Salud! 🥂</button>`
+    : `<button class="ok" onclick="cerrar()">¡Cumplido! ✅</button>
+       <button class="no" onclick="cobarde()">No me atrevo 🐔 (bebe 2)</button>`;
+  $("overlay").classList.add("show");
+}
+
+function cobarde(){
+  $("tipo").textContent = "COBARDE";
+  $("emoji").textContent = "🍻🍻";
+  $("txt").textContent = `${$("who").textContent}, bebe 2 tragos y sigue el juego.`;
+  $("btns").innerHTML = `<button class="ok" onclick="cerrar()">Salud 🥂</button>`;
+}
+
+function cerrar(){
+  $("overlay").classList.remove("show");
+  girando = false; $("spin").disabled = false;
+}
+
+dibujarRuleta(); dibujarJugadores();
+$("spin").addEventListener("click", girar);
+</script>
+</body>
+</html>
